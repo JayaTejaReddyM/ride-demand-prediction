@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Driver Recommendation</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    select, button { padding: 8px; margin: 5px 5px 5px 0; }
+    button { background: #1a73e8; color: white; border: none; cursor: pointer; }
+    .msg { background: #e8f5e9; padding: 15px; border-radius: 6px; margin-top: 20px; font-size: 18px; }
+    table { border-collapse: collapse; margin-top: 15px; }
+    td, th { border: 1px solid #ccc; padding: 8px 14px; }
+  </style>
+</head>
+<body>
+  <h2>Driver Recommendation</h2>
+  <form method="POST">
+    Current zone:
+    <select name="zone">
+      {% for id, z in zones.items() %}<option value="{{ id }}">{{ z[0] }}</option>{% endfor %}
+    </select>
+    Hour:
+    <select name="hour">
+      {% for h in range(24) %}<option value="{{ h }}">{{ h }}:00</option>{% endfor %}
+    </select>
+    Day:
+    <select name="day">
+      {% for d in days %}<option value="{{ loop.index0 }}">{{ d }}</option>{% endfor %}
+    </select>
+    <button type="submit">Get recommendation</button>
+  </form>
+
+  {% if result %}
+    <div class="msg">{{ result.message }}</div>
+    <table>
+      <tr><th>Zone</th><th>Predicted rides</th><th>Distance (km)</th><th>Score</th></tr>
+      {% for o in result.options %}
+      <tr><td>{{ o.zone_name }}</td><td>{{ o.predicted_rides }}</td>
+          <td>{{ o.distance_km }}</td><td>{{ o.score }}</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+  <p><a href="/dashboard">Back to dashboard</a></p>
+</body>
+</html>

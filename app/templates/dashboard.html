@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dashboard</title>
+  <style>
+    body { font-family: Arial; margin: 40px; }
+    .badge { background: #1a73e8; color: white; padding: 3px 10px;
+             border-radius: 12px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Welcome, {{ user }} <span class="badge">{{ role }}</span></h1>
+  <p>Choose a module:</p>
+  <ul>
+    {% if role in ['admin', 'planner'] %}<li><a href="/heatmap">Heatmap Dashboard</a></li>{% endif %}
+    {% if role in ['admin', 'driver'] %}<li><a href="/recommend">Driver Recommendations</a></li>{% endif %}
+    {% if role == 'admin' %}<li><a href="/admin">Admin page</a></li>{% endif %}
+  </ul>
+  <a href="/logout">Logout</a>
+</body>
+</html>

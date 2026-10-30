@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Demand Heatmap</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <style>
+    body { font-family: Arial; margin: 20px; }
+    #map { height: 520px; border-radius: 8px; margin-top: 10px; }
+    .controls { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+    select, input[type=range] { padding: 6px; }
+    table { border-collapse: collapse; margin-top: 15px; }
+    td, th { border: 1px solid #ccc; padding: 6px 14px; }
+  </style>
+</head>
+<body>
+  <h2>Ride Demand Heatmap</h2>
+  <div class="controls">
+    <label>Day:
+      <select id="day">
+        {% for d in days %}<option value="{{ loop.index0 }}">{{ d }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Hour: <input type="range" id="hour" min="0" max="23" value="18">
+      <b id="hourLabel">18:00</b></label>
+    <button id="nowBtn">Use current time</button>
+  </div>
+
+  <div id="map"></div>
+    <h3>Live requests (updates every 3 seconds)</h3>
+  <table id="liveTbl">
+    <thead><tr><th>Zone</th><th>Live requests</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p>Queue size: <b id="qsize">0</b></p>
+
+  <table id="tbl">
+    <thead><tr><th>Zone</th><th>Predicted rides</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p><a href="/dashboard">Back to dashboard</a></p>
+
+<script>
+  const map = L.map("map").setView([40.72, -73.9], 10);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+              {attribution: "&copy; OpenStreetMap contributors"}).addTo(map);
+
+  let heat = null;
+  let circles = [];
+
+  function color(ratio) {
+    if (ratio > 0.75) return "#d32f2f";
+    if (ratio > 0.45) return "#f57c00";
+    if (ratio > 0.2)  return "#fbc02d";
+    return "#388e3c";
+  }
+
+  async function refresh() {
+    const hour = document.getElementById("hour").value;
+    const day = document.getElementById("day").value;
+    document.getElementById("hourLabel").textContent = hour + ":00";
+
+    const res = await fetch(`/api/demand?hour=${hour}&day=${day}`);
+    const data = await res.json();
+    const max = Math.max(...data.map(d => d.predicted_rides), 1);
+
+    if (heat) map.removeLayer(heat);
+    circles.forEach(c => map.removeLayer(c));
+    circles = [];
+
+    heat = L.heatLayer(
+      data.map(d => [d.lat, d.lon, d.predicted_rides / max]),
+      {radius: 45, blur: 30, maxZoom: 11}
+    ).addTo(map);
+
+    data.forEach(d => {
+      const c = L.circleMarker([d.lat, d.lon], {
+        radius: 6, color: "#222", fillColor: color(d.predicted_rides / max),
+        fillOpacity: 1, weight: 1
+      }).bindTooltip(`${d.zone_name}: ${d.predicted_rides} rides`).addTo(map);
+      circles.push(c);
+    });
+
+    const tbody = document.querySelector("#tbl tbody");
+    tbody.innerHTML = data.map(d =>
+      `<tr><td>${d.zone_name}</td><td>${d.predicted_rides}</td></tr>`).join("");
+  }
+
+  function useNow() {
+    const now = new Date();
+    document.getElementById("hour").value = now.getHours();
+    document.getElementById("day").value = (now.getDay() + 6) % 7; // Monday = 0
+    refresh();
+  }
+
+  document.getElementById("hour").addEventListener("input", refresh);
+  document.getElementById("day").addEventListener("change", refresh);
+  document.getElementById("nowBtn").addEventListener("click", useNow);
+  refresh();
+  setInterval(refresh, 15000);
+    async function refreshLive() {
+    const res = await fetch("/api/live");
+    const d = await res.json();
+    document.querySelector("#liveTbl tbody").innerHTML = d.counts
+      .sort((a, b) => b.live_requests - a.live_requests)
+      .map(c => `<tr><td>${c.zone_name}</td><td>${c.live_requests}</td></tr>`).join("");
+    document.getElementById("qsize").textContent = d.queue_size;
+  }
+  refreshLive();
+  setInterval(refreshLive, 3000);   // refreshes every 15 seconds
+</script>
+</body>
+</html>
